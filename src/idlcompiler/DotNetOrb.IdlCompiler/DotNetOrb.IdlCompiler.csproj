@@ -9,10 +9,11 @@
 	<Copyright>Copyright (c) DotNetOrb Team (dotnetorb@gmail.com)</Copyright>
 	<Authors>dotnetorb</Authors>
 	<Description>A compiler for DotNetOrb IDL files</Description>
-	<PackageReadmeFile></PackageReadmeFile>
+	<PackageReadmeFile>README.md</PackageReadmeFile>
 	<PackageTags>CORBA;ORB;IDL;.NET;COMPILER</PackageTags>
 	<PackAsTool>True</PackAsTool>
 	<PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+	<RepositoryUrl>https://github.com/dotnetorb/DotNetOrb</RepositoryUrl>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
@@ -33,6 +34,10 @@
 
   <ItemGroup>
     <None Include="..\..\..\LICENSE.txt">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Include="..\..\..\README.md">
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
     </None>

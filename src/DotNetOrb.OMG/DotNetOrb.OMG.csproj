@@ -10,10 +10,16 @@
     <Copyright>Copyright (c) DotNetOrb Team (dotnetorb@gmail.com)</Copyright>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <PackageTags>CORBA;ORB;IDL;.NET</PackageTags>
+    <RepositoryUrl>https://github.com/dotnetorb/DotNetOrb</RepositoryUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
     <None Include="..\..\LICENSE.txt">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Include="..\..\README.md">
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
     </None>

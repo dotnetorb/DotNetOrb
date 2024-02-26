@@ -10,10 +10,11 @@
     <Product>DotNetOrb</Product>
     <Copyright>Copyright (c) DotNetOrb Team (dotnetorb@gmail.com)</Copyright>
     <Description>CORBA Standard Library for C# based on JacORB</Description>
-    <PackageReadmeFile></PackageReadmeFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>CORBA;ORB;IDL;.NET</PackageTags>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <IncludeSymbols>False</IncludeSymbols>
+    <RepositoryUrl>https://github.com/dotnetorb/DotNetOrb</RepositoryUrl>
   </PropertyGroup>
 
   <ItemGroup>
@@ -53,6 +54,10 @@
 
   <ItemGroup>
     <None Include="..\..\LICENSE.txt">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Include="..\..\README.md">
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
     </None>
