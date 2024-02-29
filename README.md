@@ -346,7 +346,7 @@ To provide an implementation of the functionality promised by the interface we s
         }
     }
 
-To run the server we should initialize the orb and obtain a reference to the object adapter (the POA) and activate it to start processing incoming requests.  We should also create an instance of our server class and make its object refecence available, in this case with a simple file.
+To run the server we should initialize the orb and obtain a reference to the object adapter (the POA) and activate it to start processing incoming requests.  We should also create an instance of our server class and make its object reference available, in this case with a simple file.
 
     ORB orb = (ORB)ORB.Init();
     var poa = POAHelper.Narrow(orb.ResolveInitialReferences("RootPOA"));
