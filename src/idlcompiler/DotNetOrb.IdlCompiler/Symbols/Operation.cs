@@ -54,10 +54,30 @@ namespace DotNetOrb.IdlCompiler.Symbols
 
         private void PrintPOAAsync(string indent, TextWriter stream)
         {
-            InternalPrintAsyncOperation(indent, stream, "virtual");
+            var returnParameters = InternalPrintAsyncOperation(indent, stream, "virtual");
             stream.WriteLine();
             stream.WriteLine($"{indent}{{");
-            stream.Write($"{indent}\treturn Task.FromResult({MappedName}(");            
+            if (returnParameters.Count > 0)
+            {
+                foreach (var p in returnParameters)
+                {
+                    switch (p.dir)
+                    {
+                        case ParameterDirection.OUT:
+                            stream.WriteLine($"{indent}\t{p.type} {p.name};");
+                            break;
+                    }
+                    
+                }
+            }
+            if (ReturnType != null)
+            {
+                stream.Write($"{indent}\t_result = {MappedName}(");
+            }
+            else
+            {
+                stream.Write($"{indent}\t{MappedName}(");
+            }
             var parameters = new List<string>();
             foreach (IDLSymbol child in NamingScope.Symbols.Values)
             {
@@ -78,8 +98,19 @@ namespace DotNetOrb.IdlCompiler.Symbols
                 }
             }
             stream.Write(String.Join(", ", parameters));
-            stream.Write(")");
             stream.WriteLine(");");
+            if (returnParameters.Count > 1)
+            {
+                stream.WriteLine($"{indent}\treturn Task.FromResult(({String.Join(", ", returnParameters.Select(p => $"{p.name}"))}));");
+            }
+            else if (returnParameters.Count == 1)
+            {
+                stream.WriteLine($"{indent}\treturn Task.FromResult({returnParameters[0].name});");
+            }
+            else
+            {
+                stream.WriteLine($"{indent}\treturn Task.CompletedTask;");
+            }
             stream.WriteLine($"{indent}}}");
         }
     
@@ -135,7 +166,7 @@ namespace DotNetOrb.IdlCompiler.Symbols
             stream.Write(")");
         }
 
-        private void InternalPrintAsyncOperation(string indent, TextWriter stream, string modifier)
+        private List<(string type, string name, ParameterDirection dir)> InternalPrintAsyncOperation(string indent, TextWriter stream, string modifier)
         {
             stream.WriteLine($"{indent}[IdlName(\"{Name}\")]");
             foreach (var att in MappedAttributes)
@@ -146,7 +177,11 @@ namespace DotNetOrb.IdlCompiler.Symbols
             {
                 stream.WriteLine($"{indent}[ThrowsIdlException(typeof({ex.MappedType}))]");
             }
-            List<OperationParameter> outRefParams = new List<OperationParameter>();
+            var returnParameters = new List<(string type, string name, ParameterDirection dir)>();
+            if (ReturnType != null)
+            {
+                returnParameters.Add((ReturnType.MappedType, "_result", ParameterDirection.OUT));
+            }
             foreach (IDLSymbol child in NamingScope.Symbols.Values)
             {
                 if (child is OperationParameter op)
@@ -154,35 +189,24 @@ namespace DotNetOrb.IdlCompiler.Symbols
                     switch (op.Direction)
                     {
                         case ParameterDirection.OUT:
-                            outRefParams.Add(op);
-                            break;
                         case ParameterDirection.INOUT:
-                            outRefParams.Add(op);
+                            returnParameters.Add((op.DataType.MappedType, op.MappedName, op.Direction));
                             break;
                     }
                 }
             }
             var returnType = "Task";
-            var returnParameters = new List<string>();
-            if (outRefParams.Count > 0)
-            {
-                returnType = $"Task<(";
-                if (ReturnType != null)
-                {
-                    returnType += ReturnType.MappedType + " _result, ";
-                }
-                foreach (var op in outRefParams)
-                {
-                    returnParameters.Add($"{op.DataType.MappedType} {op.MappedName}");
-                }
-                returnType += String.Join(", ", returnParameters) + ")>";
-            }
-            else if (ReturnType != null)
-            {
-                returnType = $"Task<{ReturnType.MappedType}>";
-            }           
 
-            stream.Write($"{indent}public {(String.IsNullOrEmpty(modifier) ? "" : modifier + " ")}{returnType} {GetMappedName("", "Async")}(");
+            if (returnParameters.Count == 1)
+            {
+                returnType = $"Task<{returnParameters[0].type}>";                
+            }
+            else if (returnParameters.Count > 1)
+            {                
+                returnType = $"Task<({String.Join(", ", returnParameters.Select(p => $"{p.type} {p.name}"))})>";
+            }            
+
+            stream.Write($"{indent}public {(String.IsNullOrEmpty(modifier) ? "" : modifier + " ")}{returnType} {(dotNetNaming ? GetMappedName("", "Async") : GetMappedName("", "_async"))}(");
             var parameters = new List<string>();
             foreach (IDLSymbol child in NamingScope.Symbols.Values)
             {
@@ -207,6 +231,7 @@ namespace DotNetOrb.IdlCompiler.Symbols
             }
             stream.Write(String.Join(", ", parameters));
             stream.Write(")");
+            return returnParameters;
         }
 
         public void PrintStub(string indent, TextWriter stream)
@@ -274,11 +299,12 @@ namespace DotNetOrb.IdlCompiler.Symbols
                     switch (op.Direction)
                     {
                         case ParameterDirection.OUT:
-                            op.DataType.PrintRead($"{indent}\t\t\t", stream, "inputStream", (ami ? "var " + op.MappedName: op.MappedName), 0);
                             if (ami)
                             {
                                 returnParameters.Add(op.MappedName);
+                                stream.WriteLine($"{indent}\t\t\t{op.DataType.MappedType} {op.MappedName};");
                             }
+                            op.DataType.PrintRead($"{indent}\t\t\t", stream, "inputStream", op.MappedName, 0);
                             break;
                         case ParameterDirection.INOUT:
                             op.DataType.PrintRead($"{indent}\t\t\t", stream, "inputStream", op.MappedName, 0);
@@ -431,31 +457,20 @@ namespace DotNetOrb.IdlCompiler.Symbols
 
         public void PrintTie(string indent, TextWriter stream)
         {
-            PrintTie(indent, stream, false);
+            InternalPrintTie(indent, stream);
             if (IsAsync)
             {                
-                PrintTie(indent, stream, true);
+                InternalPrintTieAsync(indent, stream);
             }
         }
 
-        private void PrintTie(string indent, TextWriter stream, bool ami)
+        private void InternalPrintTie(string indent, TextWriter stream)
         {
-            if (ami)
-            {
-                InternalPrintAsyncOperation(indent, stream, "override");
-            }
-            else
-            {
-                InternalPrintOperation(indent, stream, "override");
-            }
-            
+            InternalPrintOperation(indent, stream, "override");            
             stream.WriteLine();
             stream.WriteLine($"{indent}{{");
-            if (ami)
-            {
-                stream.Write($"{indent}\treturn Task.FromResult(_OperationsDelegate.{MappedName}(");
-            }
-            else if (ReturnType != null)
+
+            if (ReturnType != null)
             {                                
                 stream.Write($"{indent}\treturn _OperationsDelegate.{MappedName}(");                
             }
@@ -483,11 +498,69 @@ namespace DotNetOrb.IdlCompiler.Symbols
                 }
             }
             stream.Write(String.Join(", ", parameters));
-            if (ami)
-            {
-                stream.Write(")");
-            }            
             stream.WriteLine(");");
+            stream.WriteLine($"{indent}}}");
+        }
+
+        private void InternalPrintTieAsync(string indent, TextWriter stream)
+        {
+            var returnParameters = InternalPrintAsyncOperation(indent, stream, "override");
+            stream.WriteLine();
+            stream.WriteLine($"{indent}{{");
+            if (returnParameters.Count > 0)
+            {
+                foreach (var p in returnParameters)
+                {
+                    switch (p.dir)
+                    {
+                        case ParameterDirection.OUT:
+                            stream.WriteLine($"{indent}\t{p.type} {p.name};");
+                            break;
+                    }
+
+                }
+            }
+            if (ReturnType != null)
+            {
+                stream.Write($"{indent}\t_result = _OperationsDelegate.{MappedName}(");
+            }
+            else
+            {
+                stream.Write($"{indent}\t_OperationsDelegate.{MappedName}(");
+            }
+            var parameters = new List<string>();
+            foreach (IDLSymbol child in NamingScope.Symbols.Values)
+            {
+                if (child is OperationParameter op)
+                {
+                    var p = "";
+                    switch (op.Direction)
+                    {
+                        case ParameterDirection.OUT:
+                            p += "out ";
+                            break;
+                        case ParameterDirection.INOUT:
+                            p += "ref ";
+                            break;
+                    }
+                    p += op.MappedName;
+                    parameters.Add(p);
+                }
+            }
+            stream.Write(String.Join(", ", parameters));
+            stream.WriteLine(");");
+            if (returnParameters.Count > 1)
+            {
+                stream.WriteLine($"{indent}\treturn Task.FromResult(({String.Join(", ", returnParameters.Select(p => $"{p.name}"))}));");
+            }
+            else if (returnParameters.Count == 1)
+            {
+                stream.WriteLine($"{indent}\treturn Task.FromResult({returnParameters[0].name});");
+            }
+            else
+            {
+                stream.WriteLine($"{indent}\treturn Task.CompletedTask;");
+            }
             stream.WriteLine($"{indent}}}");
         }
     }
